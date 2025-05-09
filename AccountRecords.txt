@@ -1,0 +1,6 @@
+C02*Alice Smith*NfrFqnhjXrnym*alice.smith@example.com*456 Oak Avenue, Metropolis*Customer*Enabled
+C03*Bob Johnson*6789*bob.j@example.com*789 Pine Road, Gotham*Customer*Enabled
+A01*Emily Wong*jw|\mfyFXnlrf*emily.wong@example.com*321 Elm Boulevard, Star City*Admin*Enabled
+A02*Mike Santos*ywfqfqjqtYwfqfqf*mike.s@example.com*654 Birch Lane, Central City*Admin*Enabled
+A03*Sarah Connor*yzslyzslyzslxfmzw*sarah.c@example.com*987 Cedar Court, Neon City*Admin*Enabled
+C01*cy*N%qt{j%of{f*john.doe@example.com*123 Maple Street, Springfield*Customer*Enabled
