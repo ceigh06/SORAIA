@@ -1101,13 +1101,45 @@ public class RetailerStore {
 		
 	}
 
+	public static String changeUserAddress(){
+		String userAddress = "";
+		boolean isRunning = true;
+		int flag = 1;
+		final int isChangingAdrress = 2;
+		String choice = "";
+		while (isRunning){
+			if (flag != isChangingAdrress){
+				System.out.println("Do you want to change your address that the item will be shipped to?");
+				System.out.println("[1] yes [0] no");
+				System.out.print("Input: ");
+				choice = scanner.nextLine().trim();
+				switch (choice) {
+					case "0":
+						System.out.println("Using your saved address for shipping...");
+						isRunning = false;
+					case "1":
+						System.out.println("Please input the address you want to ship you item to.");
+						System.out.print("Address:");
+						return scanner.nextLine().trim();
+					default:
+						System.out.println("Invalid Input \n");
+						break;
+				}
+			}
+		}
+		return "";
+	}
 	public static void proceedTocheckout(int quantity, String productID, String productVariationID) throws IOException{
+		String userAddress = "";
+		if ((userAddress = changeUserAddress()).equals("")){ // for changing address
+			userAddress = getUserAddress();
+		}
 		logActivity("Purchased an Item");
 		LocalTime currentTime = LocalTime.now();
 		LocalDate currentDate = LocalDate.now();
 		File salesTransaction = new File("SalesTransactions.txt");
 		BufferedWriter salesTransactionsWriter = new BufferedWriter(new FileWriter(salesTransaction, true));
-		salesTransactionsWriter.write(String.join("*",currentDate.toString(),currentTime.toString(),currentUserID,getUserAddress(),productID,productVariationID,String.valueOf(quantity) + "\n"));
+		salesTransactionsWriter.write(String.join("*",currentDate.toString(),currentTime.toString(),currentUserID,userAddress,productID,productVariationID,String.valueOf(quantity) + "\n"));
 		salesTransactionsWriter.close();
 
 		//update inventory stocks (variations)
@@ -1240,7 +1272,7 @@ public class RetailerStore {
 
 	public static void handleUserOptions() throws IOException {
 		logActivity("Log In");
-		System.out.println("\nWelcome back, " + currentUserID);
+		System.out.println("\nWelcome back, " + getUsername(currentUserID));
 		boolean isRunning = true;
 		while (isRunning) {
 			displayUserMenu();
@@ -2041,21 +2073,38 @@ public class RetailerStore {
 		File originalFile = new File("ProductRecords.txt");
 		File tempFile = new File("TempProductRecords.txt");
 
+		String category = getCategoryValue(" ");
+		if(category.isEmpty()) {
+			return;
+		}
+		
+		String line;
+		try (BufferedReader reader = new BufferedReader(new FileReader(originalFile))) {
+			boolean foundCategory = false;
+			while((line = reader.readLine()) != null) {
+				String fields[] = line.split("\\*"); 
+				if(fields[1].equalsIgnoreCase(category)) {
+					foundCategory = true;
+					System.out.println(line);
+				}
+			}
+		}catch(Exception e) {
+			System.out.println(e.getMessage());
+		}
+		
 		System.out.print("Enter product code to edit: ");
-		String editProduct = scanner.nextLine().trim().toUpperCase();
+		String editProd = scanner.nextLine().trim().toUpperCase();
 
 		boolean found = false;
 		BufferedReader reader = new BufferedReader(new FileReader(originalFile));
 		BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile));
 
-
-		String line;
 		while ((line = reader.readLine()) != null) {
 			String[] fields = line.split("\\*");
-			if (fields[0].equals(editProduct)) {
+			if (fields[0].equals(editProd)) {
 				found = true;
 				String[] productDetails = fields.clone();
-				String updatedLine = editProductAttributes(productDetails, editProduct);
+				String updatedLine = editProductAttributes(productDetails, editProd);
 				if (!updatedLine.isEmpty()) {
 					writer.write(updatedLine + "\n");
 				} else {
@@ -2065,12 +2114,8 @@ public class RetailerStore {
 				writer.write(line + "\n");
 			}
 		}
-
-
 		reader.close();
 		writer.close();
-
-
 		if (!found) {
 			System.out.println("Product code not found. No changes made.");
 			tempFile.delete();
@@ -2078,6 +2123,11 @@ public class RetailerStore {
 		}
 		if (originalFile.delete() && tempFile.renameTo(originalFile)) {
 			System.out.println("Product updated successfully.");
+			System.out.print("Do you want to edit a product variant? [1- Yes or 0 - No]: ");
+			String choice = scanner.nextLine().trim();
+			if(choice.equals("1")) {
+				handleVariantEditing(editProd); 
+			}
 		} else {
 			System.out.println("Error occurred while saving updates.");
 		}
@@ -2199,14 +2249,30 @@ public class RetailerStore {
 
 		boolean found = false;
 
-
+		
+		String category = getCategoryValue(" ");
+		if(category.isBlank()) {
+			return;
+		}
+		String line;
+		try (BufferedReader reader = new BufferedReader(new FileReader(variantFile))) {
+			boolean foundCategory = false;
+			while((line = reader.readLine()) != null) {
+				String fields[] = line.split("\\*"); 
+				if(fields[1].equalsIgnoreCase(category)) {
+					foundCategory = true;
+					System.out.println(line);
+				}
+			}
+		}catch(Exception e) {
+			System.out.println(e.getMessage());
+		}
 		System.out.print("Enter the product code to remove a variant from: ");
 		String mainProduct = scanner.nextLine().trim();
 
 
 		String[] matchingVariants = new String[10];
 		int variantCount = 0;
-		String line;
 
 
 		while ((line = inventoryReader.readLine()) != null) {
@@ -2300,6 +2366,23 @@ public class RetailerStore {
 		File tempFile = new File("TempProductRecords.txt");
 		File archiveFile = new File("ArchiveProducts.txt");
 
+		String category = getCategoryValue(" ");
+		if(category.isBlank()) {
+			return;
+		}
+		String line;
+		try (BufferedReader reader = new BufferedReader(new FileReader(inputFile))) {
+			boolean foundCategory = false;
+			while((line = reader.readLine()) != null) {
+				String fields[] = line.split("\\*"); 
+				if(fields[1].equalsIgnoreCase(category)) {
+					foundCategory = true;
+					System.out.println(line);
+				}
+			}
+		}catch(Exception e) {
+			System.out.println(e.getMessage());
+		}
 
 		System.out.print("Enter product code to archive: ");
 		String archiveProduct = scanner.nextLine().trim();
@@ -2309,8 +2392,6 @@ public class RetailerStore {
 		BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile));
 		BufferedWriter archiveWriter = new BufferedWriter(new FileWriter(archiveFile, true));
 
-
-		String line;
 		boolean found = false;
 
 
@@ -2389,6 +2470,7 @@ public class RetailerStore {
 				isRunning = false;
 				break;
 			case "1":
+				handleViewReports();
 				// VIEW REPORTS (there are multiple options for this method)
 				break;
 			case "2":
@@ -3062,6 +3144,44 @@ public class RetailerStore {
 		}
 	}
 
+	public static String getUsername(String userID) throws IOException{
+		File accountRecords = new File("AccountRecords.txt");
+		BufferedReader accountRecordsReader = new BufferedReader(new FileReader(accountRecords));
+		String line = "";
+		while ((line = accountRecordsReader.readLine()) != null){
+			String [] fields = line.split("\\*");
+			if (fields[0].trim().equals(userID)){
+				accountRecordsReader.close();
+				return fields [1];
+			}
+		}
+		accountRecordsReader.close();
+		return "";
+	}
+
+	public static void viewUserActivityLogs() throws IOException{
+		try (BufferedReader readActivityLogs = new BufferedReader( new FileReader("ActivityLogs.txt"))) {
+			String line;
+			boolean found = false;
+			System.out.println("==================== ACTIVITY LOGS ===========================");
+			while ((line = readActivityLogs.readLine()) != null) {
+				String activityLog[] = line.split("\\*");
+				found = true;
+				String date = activityLog[0];
+				String time = activityLog[1].split("\\.")[0]; // Remove decimal part
+				String username = getUsername(activityLog[2]);
+				String userType = activityLog[3];
+				String activity = activityLog[4];		
+				System.out.println(date + " " + time + " " + username + " " + userType + " " + activity);
+			}
+			if (!found) {
+				System.out.println("There are no saved activities yet");
+			}
+			System.out.println("===========================================================");
+		} catch (IndexOutOfBoundsException e) {
+			System.out.println(e.getMessage());
+		}
+	}
 		public static void displayInventoryMenu() {
 		System.out.println("=".repeat(120));
 		System.out.printf("| %-116s |\n", centerText("PRODUCT VIEWER MENU", 116));
@@ -3193,7 +3313,7 @@ public class RetailerStore {
 				handleInventoryOptions();
 				break;
 			case "3":
-				// viewUserActivityLogs();
+				viewUserActivityLogs();
 				// --> AccountID*LogIn(date and time)*purchase*LogOut(date and time)
 				break;
 			case "4":
@@ -3496,10 +3616,15 @@ public static void displayEditAdminAccountMenu() {
 		return " ".repeat(leftPadding) + text + " ".repeat(rightPadding);
 	}
 	public static void checkEssentialFiles()throws IOException{
+		
 		File productFiles = new File("ProductInventory.txt");
 		if (!productFiles.exists() || productFiles.length() == 0) {
-			createDefaultProducts();
 			createDefaultVariations();
+		}
+		
+		File inventoryFile = new File("ProductRecords.txt");
+		if(!inventoryFile.exists() || inventoryFile.length() == 0) {
+			createDefaultProducts(); 
 		}
 
 		File accountFile = new File("AccountRecords.txt");
