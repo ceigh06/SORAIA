@@ -4,7 +4,10 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.Arrays;
 import java.util.Random;
 import java.util.Scanner;
 
@@ -163,6 +166,15 @@ public class RetailerStore {
 		accountWriter.close();
 	}
 
+	public static void logActivity(String action) throws IOException{
+		// TIMESTAMP*UserID*USER_TYPE*Action
+		LocalTime currentTime = LocalTime.now();
+		LocalDate currentDate = LocalDate.now();
+		File activityLogs = new File("ActivityLogs.txt");
+		BufferedWriter activityLogsWriter = new BufferedWriter(new FileWriter(activityLogs,true));
+		activityLogsWriter.write(String.join("*", currentDate.toString(), currentTime.toString(), currentUserID, currentUserType, action) + "\n");
+		activityLogsWriter.close();
+	}
 
 	
 	public static void createDefaultWallet() throws IOException {
@@ -232,7 +244,7 @@ public class RetailerStore {
 		if (choice.equals("0")) { // go back
 			return "";
 		}
-		if (choice == "2") {
+		if (choice.equals("2")){
 			return "Customer";
 		}
 		// handling the admin account creation
@@ -274,12 +286,32 @@ public class RetailerStore {
 		return String.format("%s%02d", prefix, lastAccountID + 1);
 	}
 
+	public static boolean isEmailValid(String email) {
+		String checker[] = email.split("");
+		int ctr = 0;
+		int idx = -1;
+		for (int i = 0; i < checker.length; i++) {
+			if (checker[i].equalsIgnoreCase("@")) {
+				ctr++;
+				idx = i;
+			}
+		}
+		String address = email.substring(idx + 1);
+		if (ctr != 1 || email.substring(0, idx).contains(" ")) return false;
+		if (address.contains(" ") || !address.endsWith(".com") || address.charAt(0) == '.')return false;
+		if (email.charAt(idx - 1) == '.') return false;
+		return true;
+	}
+
 	public static void addAccounts() throws IOException {
 		String userType = getUserType();
+
 		if (userType.isEmpty())
 			return; // early out if the user decides to go back
 		String id = generateAccountID(userType);
+
 		String username = "";
+
 		System.out.print("Enter User Name: ");
 		while (doesUsernameExist(username = scanner.nextLine()) == true) {
 			System.out.println("Username is already taken");
@@ -288,17 +320,20 @@ public class RetailerStore {
 		System.out.print("Enter Password: ");
 		String password = scanner.nextLine().trim();
 		String encryptedPassword = encryptPassword(password);
+
 		System.out.print("Enter Email: ");
 		String email = scanner.nextLine().trim();
-		while (!email.endsWith("@gmail.com")) {
-			System.out.print("Please enter a valid email address: ");
+		while (!isEmailValid(email)) {
+			System.out.println("Invalid email account.\n");
+			System.out.print("Enter email: ");
 			email = scanner.nextLine().trim();
 		}
+
 		System.out.print("Enter Address: ");
 		String address = scanner.nextLine().trim();
 		try (BufferedWriter writer = new BufferedWriter(
 				new FileWriter("AccountRecords.txt", true))) {
-			writer.write(String.join("*", id, username, encryptedPassword, email, address, userType, "Enabled"));
+			writer.write(String.join("*", id, username, encryptedPassword, email, address, userType, "Enabled") + "\n");
 			writer.newLine();
 			if (userType.equalsIgnoreCase("Customer")) {
 				String initialAmount = "0.00";
@@ -328,12 +363,12 @@ public class RetailerStore {
 		return currentUserType.equalsIgnoreCase("Admin");
 	}
 
-	public static String editAccountAttributes(String[] accountFields) throws IOException {
+	public static String editAdminAccountAttributes(String[] accountFields) throws IOException {
 		String accountAttributes = "";
 		boolean isEditing = true;
 		String choice = "";
 		while (isEditing) {
-			displayEditAccountMenu();
+			displayEditAdminAccountMenu();
 			choice = scanner.nextLine().trim();
 			switch (choice) {
 			case "0":
@@ -344,57 +379,45 @@ public class RetailerStore {
 				accountFields[1] = scanner.nextLine().trim();
 				break;
 			case "2":
-				System.out.print("Enter new email: ");
-				accountFields[3] = scanner.nextLine().trim();
+				System.out.print("Enter new password: ");
+				String newPassword = scanner.nextLine().trim();
+				accountFields[2] = encryptPassword(newPassword);
 				break;
 			case "3":
-				System.out.print("Enter new address: ");
-				accountFields[4] = scanner.nextLine().trim();
-				break;
-			case "4":
-				System.out.print("Enter new username: ");
-				accountFields[1] = scanner.nextLine().trim();
 				System.out.print("Enter new email: ");
 				accountFields[3] = scanner.nextLine().trim();
-				System.out.print("Enter new address: ");
-				accountFields[4] = scanner.nextLine().trim();
-				if (isAdmin()) {
-					System.out.print("Enter new user type [Admin/Customer]: ");
-					accountFields[5] = scanner.nextLine().trim();
-					System.out.print("Enter new account status [Enabled/Disabled]: ");
-					accountFields[6] = scanner.nextLine().trim();
+				while (!isEmailValid(accountFields[3])) {
+					System.out.println("Invalid email account.\n");
+					System.out.print("Enter email: ");
+					accountFields[3] = scanner.nextLine().trim();
 				}
 				break;
+			case "4":
+				System.out.print("Enter new address: ");
+				accountFields[4] = scanner.nextLine().trim();
+				break;
 			case "5":
-				if (!isAdmin()) {
-					System.out.println("Sorry! Only ADMIN account types are allowed to edit this field.");
-					continue;
-				}
 				System.out.print("Enter new user type [Admin/Customer]: ");
 				accountFields[5] = scanner.nextLine().trim();
 				break;
 			case "6":
-				if (!isAdmin()) {
-					System.out.println("Sorry! Only ADMIN account types are allowed to edit this field.");
-					continue;
-				}
 				System.out.print("Enter new account status [Enabled/Disabled]: ");
 				accountFields[6] = scanner.nextLine().trim();
 				break;
 			case "7":
-				System.out.print("Add amount to your balance: ");
-				String input = scanner.nextLine().trim();
-				try {
-					double amount = Double.parseDouble(input);
-					if (amount > 0) {
-						updateWalletBalance(amount);
-						System.out.println("Wallet updated successfully!");
-					} else {
-						System.out.println("Amount must be greater than 0.");
-					}
-				} catch (NumberFormatException e) {
-					System.out.println("Invalid number. Please enter a valid amount.");
-				}
+				System.out.print("Enter new username: ");
+				accountFields[1] = scanner.nextLine().trim();
+				System.out.print("Enter new password: ");
+				newPassword = scanner.nextLine().trim();
+				accountFields[2] = encryptPassword(newPassword);
+				System.out.print("Enter new email: ");
+				accountFields[3] = scanner.nextLine().trim();
+				System.out.print("Enter new address: ");
+				accountFields[4] = scanner.nextLine().trim();
+				System.out.print("Enter new user type [Admin/Customer]: ");
+				accountFields[5] = scanner.nextLine().trim();
+				System.out.print("Enter new account status [Enabled/Disabled]: ");
+				accountFields[6] = scanner.nextLine().trim();
 				break;
 			case "8":
 				archiveAccount();
@@ -409,10 +432,78 @@ public class RetailerStore {
 				break;
 			}
 			if (!choice.equals("0"))
-				displayAccountInformation(accountFields); // always prints the details unless going back
+				displayAccountInformation(accountFields);
 		}
 		return accountAttributes;
 	}
+
+
+	public static String editUserAccountAttributes(String[] accountFields) throws IOException {
+		String accountAttributes = "";
+		boolean isEditing = true;
+		String choice = "";
+		while (isEditing) {
+			displayEditUserAccountMenu(); // CHANGE MENU
+			choice = scanner.nextLine().trim();
+			switch (choice) {
+			case "0":
+				System.out.println("Changes not saved. Going back ...");
+				return "goBackToMenu"; // early out
+			case "1":
+				System.out.print("Enter new username: ");
+				accountFields[1] = scanner.nextLine().trim();
+				break;
+			case "2":
+				System.out.print("Enter new password: ");
+				String newPassword = scanner.nextLine().trim();
+				accountFields[2] = encryptPassword(newPassword);
+				break;
+			case "3":
+				System.out.print("Enter new email: ");
+				accountFields[3] = scanner.nextLine().trim();
+				while (!isEmailValid(accountFields[3])) {
+					System.out.println("Invalid email account.\n");
+					System.out.print("Enter email: ");
+					accountFields[3] = scanner.nextLine().trim();
+				}
+				break;
+			case "4":
+				System.out.print("Enter new address: ");
+				accountFields[4] = scanner.nextLine().trim();
+				break;
+			case "5":
+				System.out.print("Enter new username: ");
+				accountFields[1] = scanner.nextLine().trim();
+				System.out.print("Enter new password: ");
+				newPassword = scanner.nextLine().trim();
+				accountFields[2] = encryptPassword(newPassword);
+				System.out.print("Enter new email: ");
+				accountFields[3] = scanner.nextLine().trim();
+				System.out.print("Enter new address: ");
+				accountFields[4] = scanner.nextLine().trim();
+				System.out.print("Enter new user type [Admin/Customer]: ");
+				accountFields[5] = scanner.nextLine().trim();
+				System.out.print("Enter new account status [Enabled/Disabled]: ");
+				accountFields[6] = scanner.nextLine().trim();
+				break;
+			case "6":
+				archiveAccount();
+				break;
+			case "7":
+				System.out.println("Saving updates...");
+				accountAttributes = String.join("*", accountFields);
+				isEditing = false;
+				break;
+			default:
+				System.out.println("Invalid choice.");
+				break;
+			}
+			if (!choice.equals("0"))
+				displayAccountInformation(accountFields);
+		}
+		return accountAttributes;
+	}
+
 
 	public static void updateWalletBalance(double amount) throws IOException {
 		File inputFile = new File("SORAIA_Wallets.txt");
@@ -462,14 +553,20 @@ public class RetailerStore {
 		}
 		tempReader.close();
 
-
 		displayAccountInformation(accountFields);
-		accountDetails = editAccountAttributes(accountFields); // EDITS the user details
+		if (isAdmin()) {
+			accountDetails = editAdminAccountAttributes(accountFields);
+		} else {
+			accountDetails = editUserAccountAttributes(accountFields);
+		}
+
+		// EDITS the user details
 		if (accountDetails.equals("goBackToMenu")) { // goes back to menu and rewrites the selected account
 			accountRecordsWriter.write(userAccountTemp);
 			accountRecordsWriter.close();
 			return;
 		}
+
 		accountRecordsWriter.write(accountDetails); // writes the updated account with new attributes
 		accountRecordsWriter.close();
 		System.out.println("Account Updated Successfully");
@@ -502,8 +599,7 @@ public class RetailerStore {
 		System.out.println(border);
 	}
 
-	public static boolean verifyPassword(String inputPassword, String inputUsername, File accountRecords)
-			throws IOException {
+	public static boolean verifyPassword(String inputPassword, String inputUsername, File accountRecords) throws IOException {
 		BufferedReader reader = new BufferedReader(new FileReader(accountRecords));
 		String line;
 		while ((line = reader.readLine()) != null) {
@@ -577,17 +673,18 @@ public class RetailerStore {
 			System.err.println("Sorry, this account is disabled. Returning to the main menu...");
 			return -1;
 		}
+
 		System.out.print("Enter password: ");
 		String inputPassword = "";
-		int logInAttempt = 1;
+		int logInAttempt = 0;
 		while(!verifyPassword(inputPassword = scanner.nextLine().trim(), inputUsername, accountRecords) && logInAttempt < 3) {
-			System.out.println("Incorrect Password");
+			System.out.println("Incorrect Password\n");
 			logInAttempt++;
 			if (logInAttempt == 3) {
 				System.err.println("Login attempts exceeded. The program is terminating.");
 				System.exit(0);
 			}
-			System.out.println("Enter password: ");
+			System.out.print("Enter password: ");
 		}
 		
 		BufferedReader reader = new BufferedReader(new FileReader(accountRecords));
@@ -743,98 +840,116 @@ public class RetailerStore {
 		return "NOT FOUND";
 	}
 
-	public static void handlePurchasingProcess(String category, String productID,  String productVariationID, int productPrice, int quantity, double amountToPay, int flag) throws IOException {
-		// USE THIS IN THE EDIT CART FUNC USE FLAG WHICH ATTRIBUTE TO CHANGE. REMOVE THE
-		// ITEM TO REMOVE AND APPEND THE NEW WITH NEW ATTRIBUTES
-		// MAKES SURE THAT THE FLAG CANT BE THE CATEGORY??
+	public static String[] selectOrder(String[] orderAttributes, int flag) throws IOException {// USE THIS IN THE EDIT CART FUNC USE FLAG WHICH ATTRIBUTE TO CHANGE. REMOVE THEITEM TO REMOVE AND APPEND THE NEW WITH NEW ATTRIBUTES MAKES SURE THAT THE FLAG CANT BE THE CATEGORY??
 		final int changeCategory = 0;
 		final int changeProduct = 1;
 		final int changeVariation = 2;
 		final int changeQuantity = 3;
+		String category = "";
+		if (!(orderAttributes[1].equals(" "))){ // since the method doesnt save the category this ensure that the header will not error
+			category = getCategoryValue(orderAttributes[1]);
+		}
+		String productID = orderAttributes[0];
+		String productVariationID = orderAttributes[1];
+		double productPrice = Double.parseDouble(orderAttributes[2]);
+		int quantity = Integer.parseInt(orderAttributes[3]);
+		String decision = "";
+		boolean isRunning = true;
+		while (isRunning) {
+			if (flag == changeCategory) { // GET CATEGORY
+				category = getCategoryValue(" ");
+				flag = changeProduct;
+				if (category.isEmpty()) {
+					isRunning = false;
+					continue;
+				}
+			}
+
+			if (flag == changeProduct) { // GET PRODUCT
+				// display products
+				productID = getProductID(category);
+				productPrice = Double.parseDouble(getProductPrice(productID));
+
+				if (getProductStocks("ProductRecords.txt", productID, productVariationID, 1) != 0) {
+					flag = changeVariation;
+				} else {
+					System.out.println("Invalid Input. Product is out of stocks.");
+				}
+
+				if (productID.equals("")) {
+					flag = changeCategory;
+				}
+
+			}
+
+			if (flag == changeVariation) { // GET VARIATIONS
+				// display variations
+				productVariationID = getProductVariationID(productID);
+
+				if (getProductStocks("ProductInventory.txt", productID, productVariationID, 2) != 0) {
+					flag = changeQuantity;
+				} else {
+					System.out.println("Invalid Input. Product is out of stocks.");
+				}
+
+				if (productVariationID.equals("")) {
+					flag = changeProduct;
+				}
+			}
+
+			if (flag == changeQuantity) { // GET QUANTITY
+				System.out.println("How many of " + getProductName(productID) + " || Variation: " + getProductVariantName(productID, productVariationID) + " || CURRENT STOCKS: " + (getProductStocks("ProductInventory.txt", productID, productVariationID, 2)) + "x");
+				System.out.print("Quantity: ");
+				quantity = Integer.parseInt(validIntInput()); // quantity
+
+				if (quantity == 0) { // go back
+					flag = changeVariation;
+				}
+
+				else if (!(quantity <= getProductStocks("ProductInventory.txt", productID, productVariationID, 2))) { // check if higher than stocks
+					System.out.println("Inputted Quantity is higher than the current stocks.");
+				}
+
+				else {
+					orderAttributes[0] = productID;
+					orderAttributes[1] = productVariationID;
+					orderAttributes[2] = String.valueOf(productPrice);
+					orderAttributes[3] = String.valueOf(quantity);
+					return orderAttributes;
+				}
+			}
+		}
+		return new String[0];
+		// put the check out process here (cart or proceed to check out)
+	}
+
+	public static int determineCartOrPlaceOrder(String[] orderAttributes, int flag) throws IOException{
+		String productID = orderAttributes [0];
+		String productVariationID = orderAttributes[1];
+		double productPrice = Double.parseDouble(orderAttributes[2]);
+		int quantity = Integer.parseInt(orderAttributes[3]);
+		Double amountToPay = Double.parseDouble(String.valueOf(quantity)) * Double.parseDouble(String.valueOf(getProductPrice(productID)));// calculates the payment 
+		final int changeQuantity = 3;
 		final int confirmProduct = 4;
 		final int decideCartOrOrder = 5; // CHECK IF THE NAMING IS CORRECT or proceedTocheckoutOption
+		String decision = "";
+		boolean isRunning = true;
 		
-		String decision = ""; 
-
-		if (flag == changeCategory) { // GET CATEGORY
-			category = getCategoryValue();
-			flag = changeProduct;
-			if (category.isEmpty()) {
-				return;
-			}
-		}
-
-		if (flag == changeProduct) { // GET PRODUCT
-			// display products
-			productID = getProductID(category);
-			productPrice = Integer.parseInt(getProductPrice(productID));
-
-			if (getProductStocks("ProductRecords.txt", productID, productVariationID, 1) != 0){
-				flag = changeVariation;
-			} else {
-				System.out.println("Invalid Input. Product is out of stocks.");
-			}
-			
-			if (productID.equals("")) {
-				flag = changeCategory;
-			}
-			
-		}
-
-		if (flag == changeVariation) { // GET VARIATIONS
-			// display variations
-			productVariationID = getProductVariationID(productID);
-				
-			if (getProductStocks("ProductInventory.txt",productID, productVariationID, 2) != 0){
-				flag = changeQuantity;
-			} else{
-				System.out.println("Invalid Input. Product is out of stocks.");
-			}
-
-			if (productVariationID.equals("")) {
-				flag = changeProduct;
-			}
-		}
-
-		if (flag == changeQuantity ){ // GET QUANTITY
-			System.out.println("How many of " + getProductName(productID) + " || Variation: " + getProductVariantName(productID, productVariationID)  + " || CURRENT STOCKS: " + (getProductStocks("ProductInventory.txt", productID, productVariationID, 2)) + "x");
-			System.out.print("Quantity: ");
-			quantity = Integer.parseInt(validIntInput()); // quantity
-			
-			if (quantity == 0){ // go back
-				flag = changeVariation;
-			}
-
-			else if (!(quantity <= getProductStocks("ProductInventory.txt", productID, productVariationID, 2))){ // check if its higher than stocks
-				System.out.println("Inputted Quantity is higher than the current stocks.");	
-			}	
-
-			else if ((getOrderQuantity(productID, productVariationID) + quantity) > getProductStocks("ProductInventory.txt", productID, productVariationID, 2)){ // first condition checks if the order is already in the cart then compares the stocks to the sum of two orders
-				System.out.println("The item you ordered is already in the cart and your order already exceeds the current stocks");
-			}
-			
-			else{
-				amountToPay = Double.parseDouble(String.valueOf(quantity)) * Double.parseDouble(String.valueOf(getProductPrice(productID)));
-				// gets calculates the payment already
-				flag = confirmProduct;
-			}
-			
-		}
-
-		if (flag == confirmProduct) {
-			System.out.println("Current Order:\n " + getProductName(productID) + " || Variation:" + getProductVariantName(productID, productVariationID) + " || Quantity:" + quantity + " || amount to pay:" + amountToPay); // MAKE A METHOD THAT GETS THE PRODUCT NAME AND VAR
+		while (isRunning){
+			if (flag == confirmProduct) {
+			System.out.println("Current Order:\n" + getProductName(productID) + " || Variation:" + getProductVariantName(productID, productVariationID) + " || Quantity:" + quantity + " || amount to pay:" + amountToPay); 
 			System.out.println("[1] confirm order.");
-			System.out.println("[0] go back"); // GO BACK ONLY OR GO BACK TO QUANTITY???
+			System.out.println("[0] go back"); 
 			System.out.println("[x] to cancel order.");
 			System.out.print("Input: ");
 			decision = scanner.nextLine().trim();
 			if (decision.equals("0")) {
-				flag = changeQuantity; //go back to variation options
+				return changeQuantity; //go back to variation options
 			} else if (decision.equals("1")) {
 				flag = decideCartOrOrder;
 			} else if (decision.equalsIgnoreCase("x")){
 				System.out.println("Cancelling Order...");
-				return; //cancels order
+				return -1; // voids the order will not do anything. no flag can catch -1
 			}
 			else{
 				System.out.println("Invalid Choice!");
@@ -850,28 +965,36 @@ public class RetailerStore {
 					flag = confirmProduct; // ask if it should go back here the or the quantity
 					break;
 				case "1":
-					if (isItemStackable("Cart.txt",productID, productVariationID)){
-						updateCartProductQuantity(productID, productVariationID, quantity);
-						// edits the product quantity if theres already a duplicate order
-						return;
+				 	if ((getOrderCartQuantity(productID, productVariationID) + quantity) > getProductStocks("ProductInventory.txt", productID, productVariationID, 2)) { // first condition checks if the order is already in the cart then compares the stocks to the sum of two orders
+						System.out.println("The item you ordered is already in the cart and your order already exceeds the current stocks");
+						flag = confirmProduct;
+					}else{
+						addToCart(productID, productVariationID, productPrice, quantity);
+						return -1;
 					}
-					addToCart(productID, productVariationID, productPrice, quantity);
-					return;
+					break;
 				case "2":
 					// if the handleEPayment returns 0 it will go back to decide cart or order again
-					if (handlePaymentOptions(amountToPay) == 1){
-						proceedTocheckout(quantity, productID, productVariationID);
-						return;
-					}
-					
+					if (processPaymentAndCheckout(productID, productVariationID, quantity, amountToPay) == -1){
+						return -1;
+					} 
+					break;
 				default:
 					System.out.println("Invalid Input");
 					break;
 			}
 		}
+	}
+	return -2; // for error catching no flags even the while loop will catch -2
+}
 
-		handlePurchasingProcess(category, productID, productVariationID, productPrice, quantity,amountToPay, flag);
-		// put the check out process here (cart or proceed to check out)
+	public static int processPaymentAndCheckout(String productID, String productVariationID, int quantity, Double amountToPay) throws IOException{
+		if (handlePaymentOptions(amountToPay) == 1) {
+			proceedTocheckout(quantity, productID, productVariationID);
+			return -1;
+		}else{
+			return 0;
+		}
 	}
 	
 	public static int getProductTotalStocks(String productID) throws IOException{
@@ -979,15 +1102,18 @@ public class RetailerStore {
 	}
 
 	public static void proceedTocheckout(int quantity, String productID, String productVariationID) throws IOException{
-		LocalDateTime date = LocalDateTime.now();
-		String dateToday = date.toString();
+		logActivity("Purchased an Item");
+		LocalTime currentTime = LocalTime.now();
+		LocalDate currentDate = LocalDate.now();
 		File salesTransaction = new File("SalesTransactions.txt");
 		BufferedWriter salesTransactionsWriter = new BufferedWriter(new FileWriter(salesTransaction, true));
-		salesTransactionsWriter.write(String.join("*",dateToday,currentUserID,getUserAddress(),productID,productVariationID,String.valueOf(quantity) + "\n"));
+		salesTransactionsWriter.write(String.join("*",currentDate.toString(),currentTime.toString(),currentUserID,getUserAddress(),productID,productVariationID,String.valueOf(quantity) + "\n"));
 		salesTransactionsWriter.close();
 
 		//update inventory stocks (variations)
 		// update records stocks
+		// update salesTrend here
+		
 		updateInventory(productID, productVariationID, -quantity); // (-quantity) to makes sure that the value is negative and that it will deduct
 		updateProductRecordStocks(productID);
 		
@@ -1000,11 +1126,10 @@ public class RetailerStore {
 			BufferedWriter salesRecordsWriter = new BufferedWriter(new FileWriter(salesRecords, true)) ;
 			salesRecordsWriter.write(String.join("*",productID,productVariationID,String.valueOf(quantity) + "\n"));
 			salesRecordsWriter.close();
-			
 		}
 		// is the order stackable then stack the order 
-	
 	}
+
 	public static void updateCartProductQuantity(String productID, String productVariationID, int quantity) throws IOException {
 		File cart = new File("Cart.txt");
 		File temp = new File("Temp.txt");
@@ -1033,9 +1158,8 @@ public class RetailerStore {
 		cartWriter.write(String.join("*", lineToUpdate) + "\n");
 		tempReader.close();
 		cartWriter.close();
-		temp.delete();
 	}
-	public static int getOrderQuantity(String productID, String productVariationID) throws IOException{
+	public static int getOrderCartQuantity(String productID, String productVariationID) throws IOException{
 		File cart = new File("Cart.txt");
 		BufferedReader cartReader = new BufferedReader(new FileReader(cart));
 		String line = "";
@@ -1092,7 +1216,7 @@ public class RetailerStore {
 				fileReader.close();
 				return true;
 			}
-			if (filePath.equals("Cart.txt") &&currentUserID.equals(fields[0]) && productID.equals(fields[1]) && productVariationID.equals(fields[2])){
+			if (filePath.equals("Cart.txt") && currentUserID.equals(fields[0]) && productID.equals(fields[1]) && productVariationID.equals(fields[2])){
 				fileReader.close();
 				return true;
 			}
@@ -1101,17 +1225,21 @@ public class RetailerStore {
 		return false;
 	}
 
-	public static void addToCart( String productID,String productVariationID,int productPrice, int quantity) throws IOException{
+	public static void addToCart( String productID,String productVariationID,double productPrice, int quantity) throws IOException{
 		//USER_ID*PRODUCT_ID*VARIATION_ID*QUANTITY*TRANSACTION_NUMBER
-		System.out.println(currentUserID + " " + productID + " " + productVariationID + " " + quantity);
+		if (isItemStackable("Cart.txt", productID, productVariationID)) {
+			updateCartProductQuantity(productID, productVariationID, quantity);// edits the product quantity if theres already a duplicate order
+			return;
+		}
 		File cart = new File("Cart.txt");
 		BufferedWriter cartWriter = new BufferedWriter(new FileWriter(cart,true));
 		cartWriter.write(String.join("*", currentUserID, productID, productVariationID,String.valueOf(productPrice), String.valueOf(quantity) + "\n"));
 		cartWriter.close();
-		userAction = "Added Product To Cart";
+		logActivity("Added an Item To Cart");
 	}
 
 	public static void handleUserOptions() throws IOException {
+		logActivity("Log In");
 		System.out.println("\nWelcome back, " + currentUserID);
 		boolean isRunning = true;
 		while (isRunning) {
@@ -1120,10 +1248,22 @@ public class RetailerStore {
 			switch (choice) {
 			case "0":
 				System.out.println("\nReturning Back to Main Menu....\n");
+				logActivity("Log Out");
 				isRunning = false;
 				break;
 			case "1":
-				handlePurchasingProcess("","","", 0, 0, 0, 0);
+				// attributes [productID, productVariationID, productPrice, quantity]
+				// put a in a while loop to make sure it is linear or put in a seperate method
+				int flag = 0;
+				String [] orderAttributes = {" "," ","0","0"};
+				while (flag != -1){
+					orderAttributes = selectOrder(orderAttributes, flag);
+					if (orderAttributes.length == 0){
+						flag = -1;
+						continue;
+					}
+					flag = determineCartOrPlaceOrder(orderAttributes, 4); // if the user goes back (flag == changeQuantity)
+				}
 				// BROWSE PRODUCTS
 				break;
 			case "2":
@@ -1131,7 +1271,7 @@ public class RetailerStore {
 				// VIEW CART OPTIONS (edit cart, proceed to check out)
 				break;
 			case "3":
-				// CHECK OUT
+				viewMyPurchase();
 				break;
 			case "4":
 				handleEditAccountDetails();
@@ -1142,12 +1282,153 @@ public class RetailerStore {
 			}
 		}
 	}
-	
+	public static void editCartItemQuantity () throws IOException{
+		boolean isRunning = true;
+		final int isDecidingDeductOrAdd = 1;
+		final int isSelectingCartItem = 2;
+		final int isGettingItemQuantity = 3;
+		int flag = isDecidingDeductOrAdd;
+
+		boolean addItem = true; // flag for adding or deducting
+		String [] cartItemAttributes = new String[5];
+		int quantity = 0;
+		while (isRunning) {
+			
+			if (flag == isDecidingDeductOrAdd) {
+				System.out.println("[0] go back [1] deduct quantity [2] add quantity");
+				System.out.print("Input:");
+				String choice = scanner.nextLine();
+				switch (choice) {
+					case "0":
+						return; // early out
+					case "1":
+						addItem = false; // changes flag and no break; because it 1 and 2 satisfy the choosing what the system will do
+					case "2": // doesnt do anything but is in here just to catch the "2" input
+						flag = isSelectingCartItem;   
+						break;
+					default:
+					System.out.println("Invalid Input!");
+						break;
+				}
+			}
+			
+			if (flag == isSelectingCartItem){
+				System.out.println("Please enter the position of the item in your cart");
+				System.out.print("Input:");
+				cartItemAttributes = getCartItemAttributes(Integer.parseInt(validIntInput()));
+
+				if (cartItemAttributes.length == 0){
+					System.out.println("Going back....");
+					flag = isDecidingDeductOrAdd;
+					continue;
+				} else if (cartItemAttributes.length == 1){
+					System.out.println("Item Not Found! Please enter a valid item position.");
+					continue;
+				}
+
+				if (getProductStocks("ProductInventory.txt", cartItemAttributes[1],  cartItemAttributes[2], 2) == 0){ // catches if the item has no stocks
+					System.out.println("Item is currently out of stock");
+					System.out.println("Do you want to remove this order from cart?");
+					System.out.println("[1] yes [0] go back");
+					String choice = scanner.nextLine().trim();
+					switch (choice) {
+						case "1":
+							removeCartItem(cartItemAttributes);
+							return;
+						case "0": 
+							flag = isDecidingDeductOrAdd;
+							break;
+						default:
+							break;
+					}
+					continue;
+				}
+
+				if ( addItem && getProductStocks("ProductInventory.txt", cartItemAttributes[1],  cartItemAttributes[2], 2) < Integer.parseInt(cartItemAttributes[4])){ // checks if the cartQuantity is higher than the currentStocks
+					System.out.println("Current cart item quantity exceeds the current stocks of the item.");
+					System.out.println("You only have the deduct option.");
+					flag = isDecidingDeductOrAdd;
+					continue;
+				}
+
+				flag = isGettingItemQuantity;
+			}
+			
+			if (flag == isGettingItemQuantity){
+				System.out.println("Quantity:");
+				quantity =  Integer.parseInt(validIntInput());
+				if (quantity == 0){
+					System.out.println("Going back.....");
+					flag = isSelectingCartItem;
+					continue; 
+				}
+
+				if (addItem && quantity + Integer.parseInt(cartItemAttributes[4]) > getProductStocks("ProductInventory.txt", cartItemAttributes[1],  cartItemAttributes[2], 2)){
+					System.out.println("Amount Exceeds the current stocks!");
+					continue;
+				} else if ( addItem == true){
+					updateCartProductQuantity( cartItemAttributes[1],  cartItemAttributes[2], quantity);
+				}
+
+				if (!addItem &&  Integer.parseInt(cartItemAttributes[4]) - quantity  == 0){
+					System.out.println("Are you sure you want to deduct " + quantity + " from your item?");
+					System.err.println("Deducting it will remove the item from the cart");
+					System.out.print("[1] yes [0] go back");
+					String choice = "";
+					while (!(choice.equals("0"))){
+						choice = scanner.nextLine().trim();
+						if (choice.equals("1")) {
+							removeCartItem(cartItemAttributes);
+							System.out.println("Successfully removed item from cart");
+							return;
+						} else if (choice.equals("0")) {
+							flag = isSelectingCartItem;
+							break;
+						} else {
+							System.out.println("Invalid Input");
+						}
+					}
+					
+					continue;
+				} 
+				if (!addItem &&  Integer.parseInt(cartItemAttributes[4]) - quantity  < 0){
+					System.out.println("Amount inputed is higher than the cart quantity");
+					continue;
+				} else if (!addItem){
+					updateCartProductQuantity( cartItemAttributes[1],  cartItemAttributes[2], -quantity);
+				}
+				return;
+			
+			}
+		}
+	}
+
+	public static String [] getCartItemAttributes(int itemPosition ) throws IOException{
+		if (itemPosition == 0){
+			return new String[0]; // returns empty
+		}
+		File cart = new File("Cart.txt");
+		BufferedReader cartReader = new BufferedReader(new FileReader(cart));
+		String line = "";
+		int currentPosition = 1;
+		while ((line = cartReader.readLine()) != null){
+			if (line.startsWith(currentUserID) && itemPosition == currentPosition){
+				return line.split("\\*"); // returns all the attributes
+			}
+			currentPosition++;
+		}
+		return new String[1]; // not found
+	}
+
 	public static void handleCartOptions() throws IOException{
 		boolean isRunning = true;
-
+		boolean canManipulateCartItem = true;
 		while (isRunning) {
-			displayCartItems();
+			if (displayCartItems() == 1){
+				canManipulateCartItem = false;
+			} else{
+				canManipulateCartItem = true;
+			}
 			displayCartOptions();
 			String choice = scanner.nextLine().trim();
 
@@ -1155,12 +1436,265 @@ public class RetailerStore {
 				System.out.println("Returning Back to Menu...");
 				return;
 			}
-
+			switch (choice) {
+				case "1":
+					if (canManipulateCartItem == false){
+						System.out.println("Theres is no item in the cart. Please put an item first.");
+						continue;
+					}
+					// edit item
+					editCartItemQuantity(); 
+					break;
+				case "2":
+					handleAddToCart();
+					// add item 
+					break;
+				case "3":
+					// remove item 
+					if (canManipulateCartItem == false){
+						System.out.println("Theres is no item in the cart. Please put an item first.");
+						continue;
+					}
+					handleRemovingOrder();
+					break;
+				case "4":
+					if (canManipulateCartItem == false){
+						System.out.println("Theres is no item in the cart. Please put an item first.");
+						continue;
+					}
+					handleCheckOutOptions();
+					// proceed to check out
+					break;
+				default:
+					break;
+			}
 			
+		}
+	}	
+	
+	public static void handleCheckOutOptions() throws IOException{
+		System.out.println("Please choose check out option below:");
+		System.out.println("[1] check out an item [2] check out all [0] go back");
+		System.out.print("Input: ");
+		String choice = scanner.nextLine().trim();
+		switch (choice) {
+			case "0":
+				System.err.println("Returning to cart Options...");
+				return;
+			case "1":
+				checkOutCartItem();
+				// check out an item 
+				break;
+			case "2":
+				handleCheckOutAllCartItems();
+				break;
+			default:
+				System.out.println("Invalid input!");
+				break;
+		}
+	}
+	public static void handleCheckOutAllCartItems() throws IOException{
+		boolean isRunning = true;
+		while (isRunning){
+			System.out.println("Are you sure you want to check out all the item in your cart?");
+			System.out.print("[1]yes [0] go back");
+			String choice = scanner.nextLine().trim();
+			switch (choice) {
+				case "0":
+					return;
+				case "1":
+					checkOutAllCartItems();
+					return;
+				default:
+					System.out.println("Invalid Input!");
+					break;
+			}
+		}
+	}
+	
+	public static void checkOutAllCartItems() throws IOException{
+		double amountToPay = 0;
+		File cart = new File("Cart.txt");
+		BufferedReader cartReader = new BufferedReader(new FileReader(cart));
+		String line = "";
+		boolean canBulkBuy = true;
+		while ((line = cartReader.readLine()) != null){
+			String [] fields = line.split("\\*");
+			if (!(fields[0].equals(currentUserID))){
+				continue;
+			}
+			amountToPay += Double.parseDouble(String.valueOf(fields[4])) * Double.parseDouble(String.valueOf(getProductPrice(fields[1])));// calculates the payment 
+
+			if (getProductStocks("ProductInventory.txt", fields[1], fields[2], 2) == 0){
+				System.out.println("The item " +  String.join(" ", getProductName(fields[1] ),getProductVariantName(fields[1], fields[2])) + " is out of stocks");
+				canBulkBuy = false;
+			} else if (Integer.parseInt(fields[4]) > getProductStocks("ProductInventory.txt", fields[1], fields[2], 2)){
+				System.out.println("The item " +  String.join(" ", getProductName(fields[1] ),getProductVariantName(fields[1], fields[2])) + " exceeds the current stocks");
+				canBulkBuy = false;
+			} 
+			// use a flag here that detects all the item and if they are available
+		}
+		
+		if (canBulkBuy == false){
+			System.out.println("Please deduct a quantity or remove the item from the cart that is printed above.");
+			return;
+		}
+		System.out.println("Amount to pay" + amountToPay);
+		cartReader.close();
+		BufferedReader secondCartReader = new BufferedReader(new FileReader(cart)); // cant use the cartReader again because it starts at the very bottom so new reader to go back on top
+		if (handlePaymentOptions(amountToPay) == 1) { // for payment if not fulfiled the bulk will not be purchases
+			while ((line = secondCartReader.readLine()) != null){// automatically checks everything out
+				String [] fields = line.split("\\*");
+				if (fields[0].equals(currentUserID)){
+					proceedTocheckout(Integer.parseInt(fields[4]), fields[1], fields[2]);
+					removeCartItem(fields);
+				} 
+			}
+			System.out.println("Successfully checked out all items.");
+			secondCartReader.close();
+			return;
+		}else{
+			System.out.println("Transaction Cancelled.");
+		}
+		secondCartReader.close();
+	}
+	public static void checkOutCartItem() throws IOException{
+		boolean isRunning = true;
+		while (isRunning) {
+			System.out.println("Please choose item in the cart:");
+			System.out.print("Input:");
+			String[] cartItemAttributes = getCartItemAttributes(Integer.parseInt(validIntInput()));
+			if (cartItemAttributes.length == 0) {
+				System.out.println("Going back....");
+				return;
+			} else if (cartItemAttributes.length == 1) {
+				System.out.println("Item Not Found! Please enter a valid item position.");
+				continue;
+			}
+			double amountToPay = Double.parseDouble(cartItemAttributes[3]) * Double.parseDouble(cartItemAttributes[4]);
+			if (processPaymentAndCheckout(cartItemAttributes[1], cartItemAttributes[2],Integer.parseInt(cartItemAttributes[4]), amountToPay) == 0) {
+				System.out.println("check out canceled");
+			} else {
+				System.out.println("Successfully purchased the item from the cart");
+				removeCartItem(cartItemAttributes);
+				break;
+			}
 		}
 	}
 
-//I changed this
+	public static void handleAddToCart() throws IOException{
+		boolean isRunning = true;
+		int flag = 0;
+		// attributes [productID, productVariationID, productPrice, quantity]
+		String [] orderAttributes = {" "," ","0","0"};
+		while (isRunning) {
+			
+			orderAttributes = selectOrder(orderAttributes, flag);
+			if (orderAttributes.length == 0) {
+				isRunning = false;
+				continue;
+			}
+			int productStocks = getProductStocks("ProductInventory.txt", orderAttributes[0], orderAttributes[1], 2);
+
+			if ( Integer.parseInt(orderAttributes[3]) > productStocks){ // catches stocks error
+				System.out.println("Inputted amount is higher than current stocks.");
+				flag = 3;
+				continue;
+			} else if (Integer.parseInt(orderAttributes[3]) +getOrderCartQuantity(orderAttributes[0], orderAttributes[1]) > productStocks ){
+				System.out.println("The item is already in the cart and exceeds the current stocks");
+				flag = 3;
+				continue;
+			}
+
+			System.out.println("Are you sure you want to add this to your cart?");
+			System.err.println("[1] yes [0] go back to cart options");
+			String choice = scanner.nextLine().trim();
+			switch (choice) {
+				case "1":
+					addToCart(orderAttributes[0], orderAttributes[1], Double.parseDouble(orderAttributes[2]), Integer.parseInt(orderAttributes[3]));
+					return;
+				case "0":
+					flag = 3;
+					System.out.println("going back...");
+					break;
+				default:
+					System.out.println("invalid input");
+					break;
+			}
+			
+		}
+		
+	}
+	public static void handleRemovingOrder() throws IOException{
+		boolean isRunning = true;
+		boolean isSelectingCartItem = true;
+		boolean isConfirmingCancellation = false;
+		String [] cartItemAttributes = new String[5];
+
+		while (isRunning) {
+			if (isSelectingCartItem){
+				System.out.println("Please enter the position of the item in your cart");
+				System.out.print("Input:");
+				cartItemAttributes = getCartItemAttributes(Integer.parseInt(validIntInput()));
+
+				if (cartItemAttributes.length == 0){
+					System.out.println("Going back....");
+					return;
+				} else if (cartItemAttributes.length == 1){
+					System.out.println("Item Not Found! Please enter a valid item position.");
+					continue;
+				}
+				isSelectingCartItem = false;
+				isConfirmingCancellation = true;
+			}
+			if (isConfirmingCancellation){
+				System.out.println("Are you sure you want to cancel " + String.join(" ", getProductName(cartItemAttributes[1] ),getProductVariantName(cartItemAttributes[1], cartItemAttributes[2]), cartItemAttributes[4] + "x"));
+				System.out.println("[1] yes [0] go back");
+				System.out.print("Input: ");
+				String choice = scanner.nextLine().trim();
+				switch (choice) {
+					case "1":
+						removeCartItem(cartItemAttributes);
+						System.out.println("Successfully removed " + String.join(" ", getProductName(cartItemAttributes[1] ),getProductVariantName(cartItemAttributes[1], cartItemAttributes[2]), cartItemAttributes[4] + "x") + " from the cart.");
+						return;
+					case "0":
+						System.out.println("Going back...");
+						isConfirmingCancellation = false;
+						isSelectingCartItem = true;
+						break;
+					default:
+						System.out.println("Invalid Input");
+						break;
+				}
+			}
+		}
+	}	
+
+	public static void removeCartItem(String [] cartItemAttributes) throws IOException{
+		File cart = new File("Cart.txt");
+		File temp = new File("temp.txt");
+		BufferedReader cartReader = new BufferedReader(new FileReader(cart));
+		BufferedWriter tempWriter = new  BufferedWriter(new FileWriter(temp));
+		String line = "";
+		while ((line = cartReader.readLine()) != null){
+			String [] fields = line.split("\\*");
+			if (!(fields[0].equals(currentUserID) && fields[1].equals(cartItemAttributes[1]) && fields[2].equals(cartItemAttributes[2]))){
+				tempWriter.write(line + "\n");
+			}
+		}
+		cartReader.close();
+		tempWriter.close();
+
+		BufferedWriter cartWriter = new BufferedWriter(new FileWriter(cart));
+		BufferedReader tempReader = new BufferedReader(new FileReader(temp));
+
+		while ((line = tempReader.readLine()) != null){
+			cartWriter.write(line + "\n");
+		}
+		cartWriter.close();
+		tempReader.close();
+		logActivity("Removed an Item To Cart");
+	}
 	public static String validIntInput() {
 		String input = scanner.nextLine().trim();
 		try {
@@ -1181,26 +1715,40 @@ public class RetailerStore {
 	}
 
 	public static String validSizeInput() {
-	    String input = scanner.nextLine().trim();
-	    if (input.matches("^[0-9]*\\.?[0-9]+\s*[a-zA-Z]*$")) { //3KG
-	    	 String numberPart = input.replaceAll("[^0-9.]", "");  // 3
-	         String unitPart = input.replaceAll("[^a-zA-Z]", "");  // KG OR ""
-	         try {
-	             int num = Integer.parseInt(numberPart);
-	             if (num <= 0) {
-	                 System.out.print("Enter a value higher than 0: ");
-	                 return validSizeInput();
-	             }
-	             return num + unitPart;
-	         } catch (NumberFormatException e) {
-	             System.out.print("Invalid number format. Try again: ");
-	             return validSizeInput();
-	         }
-	     } else {
-	         System.out.print("Enter a valid size (e.g., 250ml, 3.5kg, 10): ");
-	         return validSizeInput();
-	     }
-	 }
+		String input = scanner.nextLine().trim();
+		String numberPart = "", unitPart = "";
+		boolean dotOccured = false;
+		
+		for(char c : input.toCharArray()) {
+			if("0123456789.".indexOf(c) != -1) {
+				if(c == '.' && dotOccured) continue;
+				if(c == '.') dotOccured = true;
+				numberPart += c;
+			}else if(Character.isLetter(c)) {
+				unitPart += c;
+			}else {
+				System.out.print("Enter a valid size: ");
+				return validSizeInput();
+			}
+		}
+		
+		if(numberPart.isEmpty()) {
+			System.out.println("Enter a valid size: ");
+			return validSizeInput();
+		}
+		
+		double decimalNumbers = Double.parseDouble(numberPart);
+		if(decimalNumbers <= 0) {
+			System.out.print("Enter a value higher than 0: ");
+			return validSizeInput();
+		}
+		
+		if(decimalNumbers == (int) decimalNumbers) {
+			return ((int) decimalNumbers + unitPart);
+		}else {
+			return decimalNumbers + unitPart;
+		}
+	}
 
 	public static String generateProductID(String category) throws IOException {
 		int productDelimiter = getProductDelimeter(category);
@@ -1247,22 +1795,36 @@ public class RetailerStore {
 		return productDelimiter;
 	}
 	
-	public static String getCategoryValue() {
-		displayProductCategories();
-		String choice = "";
-		choice = scanner.nextLine().trim();
-		switch (choice) {
-		case "0": return "";
-		case "1": return "SCP";
-		case "2": return "BCP";
-		case "3": return "MUP";
-		case "4": return "HCP";
-		case "5": return "NCP";
-		case "6": return "TSP";
-		default:
-			System.out.println("invalid category");
-			return getCategoryValue();
+	public static String getCategoryValue(String choice) {
+		if (choice.equals(" ")){ // for new run of the selectProduct
+			displayProductCategories();
+			choice = scanner.nextLine().trim();
 		}
+		boolean isRunning = true;
+		while (isRunning) {
+			switch (choice) {
+				case "0":
+					return "";
+				case "1":
+					return "SCP";
+				case "2":
+					return "BCP";
+				case "3":
+					return "MUP";
+				case "4":
+					return "HCP";
+				case "5":
+					return "NCP";
+				case "6":
+					return "TSP";
+				default:
+					System.out.println("Invalid category");
+					System.out.print("Input: ");
+					choice = scanner.nextLine().trim();
+					break;
+			}
+		}
+		return choice;
 	}
 
 	public static void handleAddProducts() throws IOException{
@@ -1317,9 +1879,11 @@ public class RetailerStore {
 	public static void addProducts() throws IOException {
 		File file = new File("ProductRecords.txt");
 		BufferedWriter writer = new BufferedWriter(new FileWriter(file, true));
-		String category = getCategoryValue();
-		if (category.isEmpty())
+		String category = getCategoryValue(" ");
+		if (category.isEmpty()){
+			writer.close();
 			return; // go back to menu
+		}
 
 		String productID = generateProductID(category);
 
@@ -1379,7 +1943,7 @@ public class RetailerStore {
 	public static void addProductVariation() throws IOException {
 	    File productFile = new File("ProductRecords.txt");
 	    try (BufferedWriter writer = new BufferedWriter(new FileWriter(productFile, true))) {
-	        String category = getCategoryValue();
+	        String category = getCategoryValue(" ");
 	        if (category.isEmpty())
 	            return; // go back to menu
 	        System.out.println("Enter product code to add variations: ");
@@ -1812,6 +2376,7 @@ public class RetailerStore {
 	}
 
 	public static void handleAdminOptions() throws IOException {
+		logActivity("Log In");
 		System.out.println("\nWelcome back, " + currentUserID); // MAKE A METHOD THE RETURNS THE USERNAME
 		boolean isRunning = true;
 		while (isRunning) {
@@ -1820,6 +2385,7 @@ public class RetailerStore {
 			switch (choice) {
 			case "0":
 				System.out.println("\nReturning Back to Main Menu....\n");
+				logActivity("Log Out");
 				isRunning = false;
 				break;
 			case "1":
@@ -1844,10 +2410,7 @@ public class RetailerStore {
 		}
 	}
 
-	public static void handleCreatingAccountOptions() throws IOException {
-		addAccounts();
-	}
-
+	
 	public static String getUserAddress() throws IOException{
 		File accountRecords = new File("AccountRecords.txt");
 		BufferedReader accountReader = new BufferedReader(new FileReader(accountRecords));
@@ -1908,7 +2471,7 @@ public class RetailerStore {
 		return "NOT FOUND";
 	}
 
-	public static void displayCartItems() throws IOException{
+	public static int displayCartItems() throws IOException{
 		File cartRecords = new File("Cart.txt");
 	    BufferedReader cartReader = new BufferedReader(new FileReader(cartRecords));
 	    String line;
@@ -1931,7 +2494,11 @@ public class RetailerStore {
 				System.out.printf("| %d. %-18s | %-10s | ₱%-6.2f | %-10s | ₱%-10.2f |\n", count++, productName, productVariationName, productPrice, productQuantity + "x", totalProductPrice);
 			}
 		}
+		if (count == 1) {
+			System.out.println("THERE ARE NO ITEMS IN YOUR CART");
+		}
 		cartReader.close();
+		return count;
 	}
 
 
@@ -2054,6 +2621,7 @@ public class RetailerStore {
 		boolean isRunning = true;
 		while (getCurrentWalletBalance() < amountToPay){
 			System.out.println("Insufficient Balance. Please load more.");
+			System.out.println("Your current balance ₱" + getCurrentWalletBalance() + " Amount to pay: " + amountToPay);
 			System.out.println("[0] go back [1] load balance to account.");
 			System.out.print("Input: ");
 			String choice = scanner.nextLine().trim();
@@ -2087,35 +2655,7 @@ public class RetailerStore {
 		return -1; // for error catching if it occurs
 	}
 
-	public static void handleViewReports() throws IOException {
-		boolean isRunning = true;
-		while (isRunning) {
-			displayViewReportsMenu();
-			String choice = scanner.nextLine().trim();
-			switch (choice) {
-			case "0":
-				System.out.println("Going back ...");
-				isRunning = false;
-				break;
-			case "1":
-				handleSalesReportOptions();
-				break;
-			case "2":
-				handleInventoryOptions();
-				break;
-			case "3":
-				// viewUserActivityLogs();
-				// --> AccountID*LogIn(date and time)*purchase*LogOut(date and time)
-				break;
-			case "4":
-				handleViewAccountsOptions();
-				break;
-			default:
-				System.out.println("Invalid choice.");
-				break;
-			}
-		}
-	}
+
 	public static void handleViewAccountsOptions() throws IOException {
 		boolean isRunning = true;
 		while (isRunning) {
@@ -2445,6 +2985,8 @@ public class RetailerStore {
 		}
 		writeTopSales(top5Sales);
 	}
+
+	
 	public static void writeTopSales(String top5Sales[][]) throws IOException {
 		BufferedWriter writer = new BufferedWriter(new FileWriter("TopSalesReport.txt"));
 		for (String[] t : top5Sales) {
@@ -2465,31 +3007,59 @@ public class RetailerStore {
 		}
 		writer.close();
 	}
+
 	public static void displayTopSales() throws IOException {
 		try {
-           BufferedReader reader = new BufferedReader(new FileReader("TopSalesReport.txt"));
-           String line;
-           System.out.println("=".repeat(120));
-           System.out.printf("| %-15s | %-40s | %-25s | %-27s |\n", "Product ID", "Category Code", "Product Name", "Stock");
-           System.out.println("=".repeat(120));
-           while ((line = reader.readLine()) != null) {
-               String[] parts = line.split("\\*");
-               if (parts.length == 5) {
-                   String productId = parts[0].trim();
-                   String categoryCode = parts[1].trim();
-                   String productName = parts[2].trim();
-                   String size = parts[3].trim();
-                   String stock = parts[4].trim();
-                   System.out.printf("| %-15s | %-40s | %-25s | %-27s |\n", productId, categoryCode, productName, stock);
-               } else {
-                   System.out.println("Error" + line);
-               }
-           }
-           System.out.println("=".repeat(120));
-           reader.close();
-       } catch (IOException e) {
-           System.err.println("Error reading the file: " + e.getMessage());
-       }
+			BufferedReader reader = new BufferedReader(new FileReader("TopSalesReport.txt"));
+			String line;
+			System.out.println("=".repeat(120));
+			System.out.printf("| %-10s | %-10s | %-10s | %-70s | %-4s |\n", "Ranking", "Product ID", "Variant ID","Product Name","Sales");
+			System.out.println("=".repeat(120));
+			int ctr = 1;
+			while ((line = reader.readLine()) != null) {
+				String[] parts = line.split("\\*");
+				String productId = parts[0].trim();
+				String categoryCode = parts[1].trim();
+				String productName = parts[2].trim();
+				String sales = parts[4].trim();
+				String name = getProductName(productId);
+				System.out.printf("| %-10s | %-10s | %-10s | %-70s | %-4s |\n", ctr, productId, categoryCode, name + " " + productName,sales);
+				ctr++;
+			}
+			System.out.println("=".repeat(120));
+			reader.close();
+		} catch (IOException | IndexOutOfBoundsException e) {
+			System.err.println("Error reading the file: " + e.getMessage());
+		}
+	}
+	public static void viewMyPurchase() throws IOException {
+		try (BufferedReader readPurchase = new BufferedReader(
+				new FileReader("SalesTransactions.txt"))) {
+			String line;
+			boolean found = false;
+			System.out.println("==================== MY PURCHASE ===========================");
+			while ((line = readPurchase.readLine()) != null) {
+				String transactionParts[] = line.split("\\*");
+				if (transactionParts[2].equals(currentUserID)) {
+					found = true;
+					String date = transactionParts[0];
+					String time = transactionParts[1].split("\\.")[0]; // Remove decimal part
+					String productCode = transactionParts[4];
+					String variantID = transactionParts[5];
+					String quantity = transactionParts[6];
+					String productName = getProductName(transactionParts[4]);
+					int totalPrice = Integer.parseInt(getProductPrice(transactionParts[4])) * Integer.parseInt(quantity);
+					String variantName = getProductVariantName(productCode, variantID);
+					System.out.printf("%-10s | %-6s | %-6s | %-15s | %-8s | %-8s%n", date, time, productCode, productName + " " + variantName, quantity, totalPrice);
+				}
+			}
+			if (!found) {
+				System.out.println("You have 0 purchase.");
+			}
+			System.out.println("===========================================================");
+		} catch (IndexOutOfBoundsException e) {
+			System.out.println(e.getMessage());
+		}
 	}
 
 		public static void displayInventoryMenu() {
@@ -2515,12 +3085,14 @@ public class RetailerStore {
 		System.out.printf("| %-116s |\n", centerText("1. View All Accounts", 114));
 		System.out.printf("| %-46s %-69s |\n", "", ("2. View All Enabled Accounts"));
 		System.out.printf("| %-46s %-69s |\n", "", ("3. View All Disabled Accounts"));
-		System.out.printf("| %-46s %-69s |\n", "", ("4. View by Category"));
-		System.out.printf("| %-46s %-69s |\n", "", ("5. View All Archived Accounts"));
+		System.out.printf("| %-46s %-69s |\n", "", ("4. View All Archived Accounts"));
+		System.out.printf("| %-46s %-69s |\n", "", ("5. View All SORAIA Wallets"));
+		System.out.printf("| %-46s %-69s |\n", "", ("6. View by Category"));
 		System.out.printf("| %-116s |\n", centerText("0. Go Back", 105));
 		System.out.println("=".repeat(120));
 		System.out.print("Enter your choice: ");
 	}
+	
 	public static void displayViewReportsMenu() {
 		System.out.println("=".repeat(120));
 		System.out.printf("| %-116s |\n", centerText("REPORTS MENU", 116));
@@ -2603,6 +3175,55 @@ public class RetailerStore {
 		}
 		return 0;
 	}
+
+	public static void handleViewReports() throws IOException {
+		boolean isRunning = true;
+		while (isRunning) {
+			displayViewReportsMenu();
+			String choice = scanner.nextLine().trim();
+			switch (choice) {
+			case "0":
+				System.out.println("Going back ...");
+				isRunning = false;
+				break;
+			case "1":
+				handleSalesReportOptions();
+				break;
+			case "2":
+				handleInventoryOptions();
+				break;
+			case "3":
+				// viewUserActivityLogs();
+				// --> AccountID*LogIn(date and time)*purchase*LogOut(date and time)
+				break;
+			case "4":
+				handleViewAccountsOptions();
+				break;
+			default:
+				System.out.println("Invalid choice.");
+				break;
+			}
+		}
+	}
+	
+	public static void displaySoraiaWallets() throws IOException{
+		BufferedReader walletReader = new BufferedReader(new FileReader("SORAIA_Wallets.txt"));
+		String walletLine = null; 	
+		
+		System.out.println("\n============================================================");
+	    System.out.println("|                     SORAIA WALLETS                       |");
+	    System.out.println("============================================================");
+	    System.out.printf("| %-20s | %-20s | %-10s |\n", "Wallet ID", "Owner Name", "Balance");
+	    System.out.println("============================================================");
+		while((walletLine = walletReader.readLine()) != null) {
+			String walletInfo[] = walletLine.split("\\*");
+			System.out.printf("| %-20s | %-20s | %-10s |\n", walletInfo[0], walletInfo[1], walletInfo[2]);
+		}
+		
+		System.out.println("============================================================");
+		walletReader.close();
+	}
+
 	public static void displayEMoneyOptions() {
 		System.out.println("\n============================================================");
 		System.out.println("|                    SELECT E-MONEY OPTIONS                |");
@@ -2660,11 +3281,11 @@ public class RetailerStore {
 		System.out.print("Select an option: ");
 	}
 
-	private static void printCategoryHeader(String categoryCode) {
+	private static void printCategoryHeader(String category) {
 		String categoryName = "";
 		String[] categoryNames = {"Skin Care Products","Body Care Products","Makeup Products","Hair Care Products","Nail Care Products","Toiletries / Sanitary Products"};
 		for (String categories: categoryNames){
-			if (categories.startsWith(String.valueOf(categoryCode.charAt(0)))) {
+			if (categories.startsWith(String.valueOf(category.charAt(0)))) {
 				categoryName = categories;
 			}
 		}
@@ -2736,6 +3357,38 @@ public class RetailerStore {
 		System.out.print("Select an option: ");
 	}
 
+public static void displayEditAdminAccountMenu() {
+		System.out.println("\n============================================================");
+		System.out.println("|                  EDIT ACCOUNT MENU                       |");
+		System.out.println("============================================================");
+		System.out.println("|                   1. Username                            |");
+		System.out.println("|                   2. Email                               |");
+		System.out.println("|                   3. Address                             |");
+		System.out.println("|                   4. User Type                           |");
+		System.out.println("|                   5. Account Status                      |");
+		System.out.println("|                   6. All updatable details               |");
+		System.out.println("|                   7. Delete Account                      |");
+		System.out.println("|                   8. Save changes                        |");
+		System.out.println("|                   0. Back to Main Menu                   |");
+		System.out.println("============================================================");
+		System.out.print("Select an option: ");
+	}
+
+	public static void displayEditUserAccountMenu() {
+		System.out.println("\n============================================================");
+		System.out.println("|                  EDIT ACCOUNT MENU                       |");
+		System.out.println("============================================================");
+		System.out.println("|                   1. Username                            |");
+		System.out.println("|                   2. Email                               |");
+		System.out.println("|                   3. Address                             |");
+		System.out.println("|                   4. All updatable details               |");
+		System.out.println("|                   5. Delete Account                      |");
+		System.out.println("|                   6. Save changes                        |");
+		System.out.println("|                   0. Back to Main Menu                   |");
+		System.out.println("============================================================");
+		System.out.print("Select an option: ");
+	}
+
 	public static void displayEditAccountMenu() {
 		System.out.println("\n============================================================");
 		System.out.println("|                  EDIT ACCOUNT MENU                       |");
@@ -2784,7 +3437,6 @@ public class RetailerStore {
 		System.out.print("Select an option: ");
 	}
 
-
 	public static void displayAccountTypeMenu() {
 		System.out.println("============================================================");
 		System.out.println("|                  CHOOSE ACCOUNT TYPE                     |");
@@ -2802,7 +3454,7 @@ public class RetailerStore {
 		System.out.println("============================================================");
 		System.out.println("|                   1. Browse Products                     |");
 		System.out.println("|                   2. View Cart                           |");
-		System.out.println("|                   3. Checkout                            |");
+		System.out.println("|                   3. Purchase History                    |");
 		System.out.println("|                   4. Edit Account Details                |");
 		System.out.println("|                   0. Back to Main Menu                   |");
 		System.out.println("============================================================");
@@ -2825,7 +3477,7 @@ public class RetailerStore {
 
 	public static void displayMainMenu() {
 		System.out.println("============================================================");
-		System.out.println("|                    TRALALELO TRALALA                     |");
+		System.out.println("|                         SORAIA                           |");
 		System.out.println("============================================================");
 		System.out.println("|                    1. Log In                             |");
 		System.out.println("|                    2. Create Account                     |");
@@ -2856,7 +3508,7 @@ public class RetailerStore {
 		}
 
 		File cartFile = new File("Cart.txt");
-		if (cartFile.exists() || cartFile.length() == 0) {
+		if (!cartFile.exists() || cartFile.length() == 0) {
 			BufferedWriter createCart = new BufferedWriter(new FileWriter(cartFile));
 			createCart.close();
 		}
@@ -2871,6 +3523,12 @@ public class RetailerStore {
 		if (!salesTransactionsFile.exists() || salesTransactionsFile.length() == 0) {
 			BufferedWriter createSalesTransactions = new BufferedWriter(new FileWriter(salesTransactionsFile));
 			createSalesTransactions.close();
+		}
+
+		File activityLogs = new File("ActivityLogs.txt");
+		if (!activityLogs.exists() || activityLogs.length() == 0){
+			BufferedWriter createActivityLogsFile = new BufferedWriter(new FileWriter(activityLogs));
+			createActivityLogsFile.close();
 		}
 
 		File tempFile = new File("temp.txt");
@@ -2915,7 +3573,7 @@ public class RetailerStore {
 				}
 				break;
 			case "2":
-				handleCreatingAccountOptions();
+				addAccounts();
 				break;
 			default:
 				System.out.println("\nInvalid user option.\n");

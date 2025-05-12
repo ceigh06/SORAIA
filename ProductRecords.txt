@@ -1,5 +1,5 @@
-1000*SCP*Garnier Micellar Water Cleanser*399*80
-1001*SCP*Madagascar Centrella Light Cleansing Oil*399*60
+1000*SCP*Garnier Micellar Water Cleanser*399*76
+1001*SCP*Madagascar Centrella Light Cleansing Oil*399*40
 1002*SCP*Senka Perfect Whip Cleansing Foam*300*60
 2000*BCP*BODY TREATS Hand Soap*199*120
 2001*BCP*DEO NAT Mineral Deodorant Spray*192*60
@@ -9,7 +9,7 @@
 3002*MUP*GRWM Glam & Go Stix Multiuse - Contour Stick*449*60
 4000*HCP*NATURALS Hair Treatment Oil*157*80
 4001*HCP*TRESemmé Shampoo Keratin Smooth*204*80
-4002*HCP*Dove 1 Minute Conditioner*194*80
+4002*HCP*Dove 1 Minute Conditioner*194*71
 5000*NCP*PRETTY SECRET Nail to Toe Kit with Nipper*189*20
 5001*NCP*OMG Nail Care Shine File*60*20
 5002*NCP*Catrice Nail Growth Elixir Treatment*325*20
