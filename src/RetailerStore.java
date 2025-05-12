@@ -1104,27 +1104,23 @@ public class RetailerStore {
 	public static String changeUserAddress(){
 		String userAddress = "";
 		boolean isRunning = true;
-		int flag = 1;
-		final int isChangingAdrress = 2;
 		String choice = "";
 		while (isRunning){
-			if (flag != isChangingAdrress){
-				System.out.println("Do you want to change your address that the item will be shipped to?");
-				System.out.println("[1] yes [0] no");
-				System.out.print("Input: ");
-				choice = scanner.nextLine().trim();
-				switch (choice) {
-					case "0":
-						System.out.println("Using your saved address for shipping...");
-						isRunning = false;
-					case "1":
-						System.out.println("Please input the address you want to ship you item to.");
-						System.out.print("Address:");
-						return scanner.nextLine().trim();
-					default:
-						System.out.println("Invalid Input \n");
-						break;
-				}
+			System.out.println("Do you want to change your address that the item will be shipped to?");
+			System.out.println("[1] yes [0] no");
+			System.out.print("Input: ");
+			choice = scanner.nextLine().trim();
+			switch (choice) {
+				case "0":
+					System.out.println("Using your saved address for shipping...");
+					return "";
+				case "1":
+					System.out.println("Please input the address you want to ship you item to.");
+					System.out.print("Address:");
+					return scanner.nextLine().trim();
+				default:
+					System.out.println("Invalid Input \n");
+					break;
 			}
 		}
 		return "";
